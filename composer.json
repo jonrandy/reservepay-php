@@ -1,0 +1,28 @@
+{
+    "name": "reservepay/reservepay-php",
+    "description": "PHP clients to allow usage of the Reservepay APIs",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "webfunction",
+        "web-function",
+        "api",
+        "client",
+        "merchant",
+        "sdk",
+        "terminal",
+        "reservepay",
+        "payments"
+    ],
+    "homepage": "https://webfunction.org",
+    "require": {
+        "php": ">=7.3",
+        "webfunction-protocol/webfunction": ">=0.4.0"
+    },
+    "autoload": {
+        "classmap": [
+            "src/"
+        ]
+    },
+    "minimum-stability": "stable"
+}
