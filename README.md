@@ -7,9 +7,16 @@ The clients (found in `src/`) were generated using the [WebFunction CLI tool](ht
 
 ## Usage
 
-TODO
+After `composer install reservepay/reservepay-php`:
 
 ```php
+require "vendor/autoload.php";
 
+define('API_KEY', 'my_api_key');
+
+$client = new Reservepay\Merchant\Client(bearerAuth: API_KEY);
+$versions = $client->availableApiVersions();
+
+var_dump($versions);
 
 ```
