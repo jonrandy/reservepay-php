@@ -92,8 +92,9 @@ final class Client
      * ## Connect a device with a temporary challenge
      *
      * Connect a device to the terminal that owns the given 8-digit temporary challenge.
-     * The code must be unexpired. On success the device is bound, a fresh API key token
-     * (prefixed with `reservepay_`) is returned, and the temporary challenge is cleared.
+     * The code must be unexpired. On success the device is bound, the temporary challenge
+     * is cleared, and the response holds the merchant ID, the terminal ID and a fresh API
+     * key token (prefixed with `reservepay_`).
      *
      * If the terminal is already bound to a different device, `ALREADY_CONNECTED` is returned.
      * If it is bound to the same device, the previous key is revoked and a new one is issued.
@@ -102,7 +103,7 @@ final class Client
      *
      * If the terminal has no installation linked, `NOT_CONFIGURED` is returned.
      * @param array{code: string, device_id: string} $args
-     * @return string
+     * @return array{merchant_id: string, terminal_id: string, key: string}
      * @throws BadRequestError ALREADY_CONNECTED - The terminal is connected to another device.
      * @throws BadRequestError INVALID_CHALLENGE - The code is unknown or has expired.
      * @throws BadRequestError NOT_ENABLED - The terminal exists but is disabled; enable it before connecting a device.
@@ -110,7 +111,7 @@ final class Client
      * @throws UnexpectedStatusCodeError Non-200, non-400 response.
      * @throws JsonParseError Response body wasn't valid JSON.
      */
-    public function connectDeviceByCode(array $args): string
+    public function connectDeviceByCode(array $args): array
     {
         return $this->client->call('connect-device-by-code', $args);
     }
@@ -124,7 +125,7 @@ final class Client
      * The terminal must be connected via `connect-device` and must have an installation
      * configured on the merchant terminal record.
      * @param array{merchant_id: string, terminal_id: string, device_id: string} $args
-     * @return array{installation_id: string, name: string, platform: 'WEB'|'IOS'|'ANDROID'|'TERMINAL', identifier: string, payment_methods: list<PaymentMethodAttributes>, email_capture: 'disabled'|'optional'|'required', mobile_capture: 'disabled'|'optional'|'required', address_capture: 'disabled'|'optional'|'required', merchant_name: string, interest_bearer?: 'merchant'|'customer'|null, primary_color: string, secondary_color: string, sidebar_color: string, sidebar_background_type: 'color'|'image', tile_sidebar_image: bool, hide_logo: bool, heading_font_family: string, heading_font_variant: 'Thin'|'ExtraLight'|'Light'|'Regular'|'Medium'|'SemiBold'|'Bold'|'ExtraBold'|'Black', body_font_family: string, body_font_variant: 'Thin'|'ExtraLight'|'Light'|'Regular'|'Medium'|'SemiBold'|'Bold'|'ExtraBold'|'Black', use_iso_code: bool, hide_non_significant_zeros: bool, show_amount_in_button: bool, symbol_placement: 'use_default'|'before_amount'|'after_amount', default_button_text: string, button_shape: 'rounded_none'|'rounded_full'|'rounded_xs'|'rounded_sm'|'rounded_md'|'rounded_lg'|'rounded_xl', light_logo_url?: string|null, dark_logo_url?: string|null, sidebar_image_url?: string|null, terminal_name: string, terminal_branch_name: string, terminal_kiosk_mode: bool}
+     * @return array{installation_id: string, name: string, platform: 'WEB'|'IOS'|'ANDROID'|'TERMINAL', identifier: string, payment_methods: list<PaymentMethodAttributes>, email_capture: 'disabled'|'optional'|'required', mobile_capture: 'disabled'|'optional'|'required', address_capture: 'disabled'|'optional'|'required', merchant_name: string, interest_bearer?: 'merchant'|'customer'|null, primary_color: string, secondary_color: string, sidebar_color: string, sidebar_background_type: 'color'|'image', tile_sidebar_image: bool, hide_logo: bool, shop_name_font_family: string, shop_name_font_variant: 'Thin'|'ExtraLight'|'Light'|'Regular'|'Medium'|'SemiBold'|'Bold'|'ExtraBold'|'Black', heading_font_family: string, heading_font_variant: 'Thin'|'ExtraLight'|'Light'|'Regular'|'Medium'|'SemiBold'|'Bold'|'ExtraBold'|'Black', body_font_family: string, body_font_variant: 'Thin'|'ExtraLight'|'Light'|'Regular'|'Medium'|'SemiBold'|'Bold'|'ExtraBold'|'Black', use_iso_code: bool, hide_non_significant_zeros: bool, show_amount_in_button: bool, symbol_placement: 'use_default'|'before_amount'|'after_amount', default_button_text: string, button_shape: 'rounded_none'|'rounded_full'|'rounded_xs'|'rounded_sm'|'rounded_md'|'rounded_lg'|'rounded_xl', light_logo_url?: string|null, dark_logo_url?: string|null, sidebar_image_url?: string|null, terminal_name: string, terminal_branch_name: string, terminal_kiosk_mode: bool}
      * @throws BadRequestError NOT_FOUND - The merchant or terminal could not be found, or no device is bound to the terminal.
      * @throws BadRequestError UNRECOGNIZED_DEVICE - The device_id does not match the one bound to the terminal.
      * @throws BadRequestError NOT_ENABLED - The terminal exists but is disabled.
