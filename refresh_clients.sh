@@ -13,6 +13,10 @@ if ! command -v "$WFN" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Set the copyright year in the license to the current year
+sed "s/^Copyright (c) [0-9]\{4\}/Copyright (c) $(date +%Y)/" LICENSE.txt > LICENSE.txt.tmp
+mv LICENSE.txt.tmp LICENSE.txt
+
 # Generate code for clients
 "$WFN" codegen --target php --url https://api.reservepay.com/merchants -o ./src/Merchant.php --namespace Reservepay\\Merchant
 "$WFN" codegen --target php --url https://api.reservepay.com/terminals -o ./src/Terminal.php --namespace Reservepay\\Terminal
