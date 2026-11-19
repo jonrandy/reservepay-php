@@ -13,14 +13,44 @@ if ! command -v "$WFN" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Check wfn is new enough to report its version (older builds have no --version)
+if ! WFN_VERSION="$("$WFN" --version 2>/dev/null)" || [ -z "$WFN_VERSION" ]; then
+  echo "Error: '$WFN' is too old - it does not support --version (and --hashfile)." >&2
+  echo "Get/build a newer one from https://github.com/webfunction-protocol/webfunction-cli" >&2
+  exit 1
+fi
+
 # Set the copyright year in the license to the current year
 sed "s/^Copyright (c) [0-9]\{4\}/Copyright (c) $(date +%Y)/" LICENSE.txt > LICENSE.txt.tmp
 mv LICENSE.txt.tmp LICENSE.txt
 
+# Each client's package hash is written here by wfn, then collected into buildinfo.json
+HASH_DIR="$(mktemp -d)"
+trap 'rm -rf "$HASH_DIR"' EXIT
+
 # Generate code for clients
-"$WFN" codegen --target php --url https://api.reservepay.com/merchants -o ./src/Merchant.php --namespace Reservepay\\Merchant
-"$WFN" codegen --target php --url https://api.reservepay.com/terminals -o ./src/Terminal.php --namespace Reservepay\\Terminal
-"$WFN" codegen --target php --url https://api.reservepay.com/sdk -o ./src/SDK.php --namespace Reservepay\\SDK
+"$WFN" codegen --target php --url https://api.reservepay.com/merchants -o ./src/Merchant.php --namespace Reservepay\\Merchant --hashfile "$HASH_DIR/merchants"
+"$WFN" codegen --target php --url https://api.reservepay.com/terminals -o ./src/Terminal.php --namespace Reservepay\\Terminal --hashfile "$HASH_DIR/terminals"
+"$WFN" codegen --target php --url https://api.reservepay.com/sdk -o ./src/SDK.php --namespace Reservepay\\SDK --hashfile "$HASH_DIR/sdk"
+
+# Record what the clients were generated with and from, in buildinfo.json
+MERCHANTS_HASH="$(cat "$HASH_DIR/merchants")"
+TERMINALS_HASH="$(cat "$HASH_DIR/terminals")"
+SDK_HASH="$(cat "$HASH_DIR/sdk")"
+BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+cat > buildinfo.json.tmp <<EOF
+{
+  "wfnVersion": "$WFN_VERSION",
+  "packageHashes": {
+    "merchants": "$MERCHANTS_HASH",
+    "terminals": "$TERMINALS_HASH",
+    "sdk": "$SDK_HASH"
+  },
+  "buildTime": "$BUILD_TIME"
+}
+EOF
+mv buildinfo.json.tmp buildinfo.json
 
 # Generate the autoload files so the library can be tested locally (needs composer)
 if command -v composer >/dev/null 2>&1; then
