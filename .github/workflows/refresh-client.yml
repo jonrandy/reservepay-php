@@ -1,0 +1,26 @@
+name: Refresh client
+run-name: Refresh client (${{ github.event.client_payload.source || github.event_name }})
+
+on:
+  repository_dispatch:
+    types: [refresh-client]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say hello
+        env:
+          SOURCE: ${{ github.event.client_payload.source }}
+          PACKAGE: ${{ github.event.client_payload.package }}
+        run: |
+          {
+            echo "### Refresh requested for ${{ github.repository }}"
+            echo "- event: ${{ github.event_name }}"
+            echo "- source: ${SOURCE:-n/a}"
+            echo "- package: ${PACKAGE:-n/a}"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
