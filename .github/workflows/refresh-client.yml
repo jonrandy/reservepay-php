@@ -32,11 +32,13 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
+          # wfn is built from its own clone below, and this repo has no go.mod or go.sum to cache against
+          cache: false
 
       - name: Build wfn
         run: |
@@ -95,7 +97,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add -A
-          git commit --quiet -m "Refresh clients" -m "$(jq -r '"wfn " + .wfnVersion, (.clientHashes | to_entries[] | "\(.key): \(.value)")' buildinfo.json)"
+          git commit --quiet -m "Refresh clients" -m "$(jq -r '"wfn " + .wfnVersion, (.packageHashes | to_entries[] | "\(.key): \(.value)")' buildinfo.json)"
 
           # Tag with today's date (UTC). If that tag already exists, add .1, .2, and so on
           today="$(date -u +%Y-%m-%d)"
