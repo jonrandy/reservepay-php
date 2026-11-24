@@ -7,20 +7,106 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+# Never run two refreshes at once; queue the second one
+concurrency:
+  group: refresh-client
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
-      - name: Say hello
+      - name: Check this is the default branch
         env:
-          SOURCE: ${{ github.event.client_payload.source }}
-          PACKAGE: ${{ github.event.client_payload.package }}
+          REF_NAME: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
+          if [ "$REF_NAME" != "$DEFAULT_BRANCH" ]; then
+            echo "::error::This workflow commits and tags, so it must run on the default branch ($DEFAULT_BRANCH), not $REF_NAME"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Build wfn
+        run: |
+          # Always the latest wfn: the head of the master branch of webfunction-cli
+          if ! git clone --quiet --depth 1 --branch master https://github.com/webfunction-protocol/webfunction-cli.git "$RUNNER_TEMP/wfn-src"; then
+            echo "::error::Could not clone the master branch of webfunction-cli"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/bin"
+          (cd "$RUNNER_TEMP/wfn-src" && go build -o "$RUNNER_TEMP/bin/wfn" .)
+          if ! version="$("$RUNNER_TEMP/bin/wfn" --version 2>/dev/null)"; then
+            echo "::error::wfn built from the master branch has no --version, so it is too old for refresh_clients.sh"
+            exit 1
+          fi
+          echo "Built wfn $version from master ($(git -C "$RUNNER_TEMP/wfn-src" rev-parse --short HEAD))"
+
+      - name: Run refresh_clients.sh
+        env:
+          WFN_PATH: ${{ runner.temp }}/bin/wfn
+        run: bash ./refresh_clients.sh
+
+      # A change is anything except the buildTime line of buildinfo.json: a different package hash or wfn
+      # version, but also any other difference in the files, such as different generated code or a new
+      # license year. On the very first run buildinfo.json is not in the repo yet, which counts as a change.
+      - name: Check for changes
+        id: changes
+        run: |
+          changed=false
+          if ! git cat-file -e HEAD:buildinfo.json 2>/dev/null; then
+            changed=true
+          elif [ "$(git show HEAD:buildinfo.json | jq -S 'del(.buildTime)')" != "$(jq -S 'del(.buildTime)' buildinfo.json)" ]; then
+            changed=true
+          fi
+          if [ -n "$(git status --porcelain -- . ':!buildinfo.json')" ]; then
+            changed=true
+          fi
+          if [ "$changed" = false ]; then
+            # Only buildTime differs: put the file back, so nothing is left to commit
+            git checkout --quiet -- buildinfo.json
+          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
           {
-            echo "### Refresh requested for ${{ github.repository }}"
-            echo "- event: ${{ github.event_name }}"
-            echo "- source: ${SOURCE:-n/a}"
-            echo "- package: ${PACKAGE:-n/a}"
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+            if [ "$changed" = true ]; then echo "### Changes found"; else echo "### No changes"; fi
+            echo
+            echo '```json'
+            cat buildinfo.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit, tag and push
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          git commit --quiet -m "Refresh clients" -m "$(jq -r '"wfn " + .wfnVersion, (.clientHashes | to_entries[] | "\(.key): \(.value)")' buildinfo.json)"
+
+          # Tag with today's date (UTC). If that tag already exists, add .1, .2, and so on
+          today="$(date -u +%Y-%m-%d)"
+          tag="$today"
+          n=0
+          while git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1 || git rev-parse -q --verify "refs/tags/$tag" >/dev/null; do
+            n=$((n + 1))
+            tag="$today.$n"
+          done
+          git tag -a "$tag" -m "Refresh clients $tag"
+
+          # --atomic: the branch and the tag both go, or neither does (e.g. if someone else pushed meanwhile)
+          git push --atomic origin "HEAD:refs/heads/$BRANCH" "refs/tags/$tag"
+          echo "Pushed $tag" | tee -a "$GITHUB_STEP_SUMMARY"
