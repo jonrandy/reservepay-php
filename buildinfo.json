@@ -1,9 +1,0 @@
-{
-  "wfnVersion": "0.1.0",
-  "packageHashes": {
-    "merchants": "77f51ee2f292bd817fb08ed448df49e4e0a62c338b353e22dd66724028ad111b",
-    "terminals": "bcc15bfed53cb7fa2724a4776e2f41d40448e1d175b26f5cb558ab637c18b09f",
-    "sdk": "9f3f74f78588643a3da00ef5a47f5a36a49a871f5e042d75e808c37088461ae0"
-  },
-  "buildTime": "2026-11-19T09:00:22Z"
-}
